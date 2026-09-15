@@ -1,4 +1,5 @@
-🌐 **Live Demo**: [https://sms-spam-classifie-fzvst4qjofjbdkj7otll9vq.streamlit.app](https://sms-spam-classifie-fzvst4qjofjbdkj7otll9vq.streamlit.app)# 📩 Real-Time SMS & Phishing Spam Detector
+🌐 **Live Demo**: [https://sms-spam-classifie-fzvst4qjofjbdkj7otll9vq.streamlit.app](https://sms-spam-classifie-fzvst4qjofjbdkj7otll9vq.streamlit.app)#
+📩 Real-Time SMS & Phishing Spam Detector
 
 An end-to-end Machine Learning web application designed to detect SMS spam and phishing attempts in real-time using Natural Language Processing (NLP) and Support Vector Machines (SVM).
 
