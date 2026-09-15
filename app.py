@@ -1,93 +1,90 @@
-from pathlib import Path
 import re
 import unicodedata
 import joblib
 import streamlit as st
 
-# 1. Configuration de l'interface Streamlit
-st.set_page_config(page_title="SMS Spam Classifier", layout="centered")
+# 1. Configuration de la page Streamlit
+st.set_page_config(
+    page_title="SMS Spam & Phishing Detector",
+    page_icon="📩",
+    layout="centered"
+)
 
-# 2. Chargement du modèle et du vectoriseur
-# Repère les fichiers dans le même dossier que app.py
-BASE_DIR = Path(__file__).resolve().parent
-VECTORIZER_PATH = BASE_DIR / "tfidf_vectorizer.pkl"
-MODEL_PATH = BASE_DIR / "svm_model.pkl"
-
-@st.cache_resource
-def load_resources():
-    vectorizer = joblib.load(VECTORIZER_PATH)
-    model = joblib.load(MODEL_PATH)
-    return vectorizer, model
-
-try:
-    vectorizer, model = load_resources()
-except Exception as e:
-    st.error(f"Erreur de chargement des fichiers `.pkl` : {e}")
-
-# 3. Fonction de nettoyage robuste & multilingue
-def advanced_preprocess(text):
-    text = unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8')
+# 2. Fonctions de prétraitement du texte
+def preprocess_text(text):
+    if not isinstance(text, str):
+        return ""
+    
+    # Normalisation Unicode (accents, etc.)
+    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
     text = text.lower()
     
-    leet_dict = {'@': 'a', '0': 'o', '1': 'i', '!': 'i', '$': 's', '3': 'e'}
-    for char, replacement in leet_dict.items():
+    # Remplacement du leetspeak courant
+    leetspeak = {'0': 'o', '1': 'i', '3': 'e', '4': 'a', '@': 'a', '$': 's', '!': 'i'}
+    for char, replacement in leetspeak.items():
         text = text.replace(char, replacement)
         
-    text = re.sub(r'http\S+|www\.\S+', ' tokenurl ', text)
-    text = re.sub(r'\b\d{5,}\b', ' tokenphone ', text)
+    # Masquage des URLs et numéros de téléphone
+    text = re.sub(r'http[s]?://\S+|www\.\S+', ' URL_TOKEN ', text)
+    text = re.sub(r'\b\d{7,}\b', ' PHONE_TOKEN ', text)
     
-    text = re.sub(r'[^a-z\s]', ' ', text)
+    # Suppression de la ponctuation inutile
+    text = re.sub(r'[^\w\s]', ' ', text)
     text = re.sub(r'\s+', ' ', text).strip()
     
     return text
 
-# 4. Interface Utilisateur & Style
-st.markdown(
-    """
-    <style>
-    .stApp {
-        background-image: url("https://www.pcworld.com/wp-content/uploads/2026/01/shutterstock_2495795811-2.jpg?quality=50&strip=all");
-        background-size: cover;
-        background-position: top center;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
+# 3. Chargement des modèles sauvegardés (Adapté avec .pkl)
+@st.cache_resource
+def load_assets():
+    try:
+        vectorizer = joblib.load("tfidf_vectorizer.pkl")
+        model = joblib.load("svm_model.pkl")
+        return vectorizer, model
+    except Exception as e:
+        st.error(f"Erreur de chargement des modèles : {e}")
+        return None, None
+
+vectorizer, model = load_assets()
+
+# 4. Interface Utilisateur Streamlit
+st.title("📩 Real-Time SMS & Phishing Spam Detector")
+st.markdown("Analyse de SMS en temps réel à l'aide du Traitement Automatique du Langage Naturel (NLP) et de Support Vector Machines (SVM).")
+
+st.divider()
+
+user_input = st.text_area(
+    "Entrez le message SMS à analyser :",
+    placeholder="Exemple: Claim your free $1000 gift card now at http://example.com or call 0800123456",
+    height=120
 )
 
-st.markdown(
-    "<h1 style='color: darkblue; text-align: center;'>📩 SMS Spam Detection System</h1>",
-    unsafe_allow_html=True,
-)
-
-st.markdown("Enter a message below to check if it's spam or not.")
-
-# 5. Champ de saisie et traitement
-user_input = st.text_area("Enter SMS Text Here:")
-
-SEUIL_SPAM = 0.35  
-
-if st.button("🔍 Predict"):
+if st.button("Predict / Analyser", type="primary"):
     if not user_input.strip():
-        st.warning("Please enter a message to classify.")
+        st.warning("Veuillez saisir un texte avant de lancer la prédiction.")
+    elif vectorizer is None or model is None:
+        st.error("Impossible d'effectuer la prédiction : les modèles ne sont pas chargés.")
     else:
-        cleaned_text = advanced_preprocess(user_input)
-        transformed_input = vectorizer.transform([cleaned_text])
+        # Nettoyage et vectorisation
+        cleaned_text = preprocess_text(user_input)
+        text_vectorized = vectorizer.transform([cleaned_text])
         
-        is_spam = False
-        confidence = 0.0
+        # Prédiction
+        prediction = model.predict(text_vectorized)[0]
         
+        # Probabilité (si supportée par le modèle)
         if hasattr(model, "predict_proba"):
-            probs = model.predict_proba(transformed_input)[0]
-            spam_prob = probs[1] if len(probs) > 1 else probs[0]
-            confidence = spam_prob * 100
-            if spam_prob >= SEUIL_SPAM:
-                is_spam = True
+            probabilities = model.predict_proba(text_vectorized)[0]
+            spam_prob = probabilities[1] if len(probabilities) > 1 else probabilities[0]
         else:
-            pred = model.predict(transformed_input)[0]
-            is_spam = (pred in [1, "spam", "SPAM"])
+            spam_prob = None
 
-        if is_spam:
-            st.error(f"🚨 **SPAM DETECTED!** (Confiance : {confidence:.1f}%)\nPlease be cautious and avoid clicking on any links.")
+        st.subheader("Résultat de l'analyse :")
+        if prediction == 1 or prediction == "spam":
+            st.error("🚨 **Alerte SPAM / PHISHING détecté !**")
+            if spam_prob is not None:
+                st.write(f"Probabilité de Spam : **{spam_prob * 100:.2f}%**")
         else:
-            st.success(f"✅ **NOT SPAM** (Confiance Spam : {confidence:.1f}%)\nThis message is safe to read.")
+            st.success("✅ **Message Légitime (HAM)**")
+            if spam_prob is not None:
+                st.write(f"Probabilité de Spam : **{spam_prob * 100:.2f}%**")
