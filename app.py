@@ -15,7 +15,7 @@ def preprocess_text(text):
     if not isinstance(text, str):
         return ""
     
-    # Normalisation Unicode (accents, etc.)
+    # Normalisation Unicode (accents, caractères spéciaux)
     text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
     text = text.lower()
     
@@ -34,7 +34,7 @@ def preprocess_text(text):
     
     return text
 
-# 3. Chargement des modèles sauvegardés (Adapté avec .pkl)
+# 3. Chargement des modèles sauvegardés (.pkl)
 @st.cache_resource
 def load_assets():
     try:
@@ -63,16 +63,16 @@ if st.button("Predict / Analyser", type="primary"):
     if not user_input.strip():
         st.warning("Veuillez saisir un texte avant de lancer la prédiction.")
     elif vectorizer is None or model is None:
-        st.error("Impossible d'effectuer la prédiction : les modèles ne sont pas chargés.")
+        st.error("Impossible d'effectuer la prédiction : les fichiers de modèle (.pkl) n'ont pas pu être chargés.")
     else:
-        # Nettoyage et vectorisation
+        # Nettoyage et vectorisation du texte
         cleaned_text = preprocess_text(user_input)
         text_vectorized = vectorizer.transform([cleaned_text])
         
-        # Prédiction
+        # Prédiction du modèle SVM
         prediction = model.predict(text_vectorized)[0]
         
-        # Probabilité (si supportée par le modèle)
+        # Calcul de la probabilité (si supportée par le modèle)
         if hasattr(model, "predict_proba"):
             probabilities = model.predict_proba(text_vectorized)[0]
             spam_prob = probabilities[1] if len(probabilities) > 1 else probabilities[0]
