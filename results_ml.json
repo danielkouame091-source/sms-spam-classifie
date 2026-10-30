@@ -1,0 +1,6 @@
+{
+  "model": "SVM (machine learning)",
+  "accuracy": 0.9807,
+  "f1_spam": 0.918,
+  "training_seconds": 0.01
+}

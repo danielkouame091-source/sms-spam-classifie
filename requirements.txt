@@ -1,0 +1,8 @@
+streamlit
+scikit-learn
+joblib
+numpy
+pandas
+matplotlib
+tensorflow; sys_platform == "darwin"
+tensorflow-cpu; sys_platform != "darwin"
